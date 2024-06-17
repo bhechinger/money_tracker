@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+if [ -z ${1} ]; then
+	echo "Usage: $(basename $0) <source file>"
+	exit 1
+fi
+
+TRANSACTION_FILE=$(mktemp)
+
+iconv -o ${TRANSACTION_FILE} -t UTF-8 -f UTF-16 "${1}"
+account_number=$(awk '/STATEMENT FOR CURRENT ACCOUNT NO./ { gsub(";", ""); gsub("\r","",$NF); print $NF }' ${TRANSACTION_FILE})
+
+sed -i 1,12d ${TRANSACTION_FILE}
+sed -i 's/Transaction.*Balance/record_date;value_date;description;amount;t_type;balance/g' ${TRANSACTION_FILE}
+head -n -1 ${TRANSACTION_FILE} > ${TRANSACTION_FILE}.tmp
+mv ${TRANSACTION_FILE}.tmp ${TRANSACTION_FILE}
+
+./target/debug/cli --bank-name Millennium --bank-account "${account_number}" --transaction-file ${TRANSACTION_FILE}
+
+rm -f ${TRANSACTION_FILE}
